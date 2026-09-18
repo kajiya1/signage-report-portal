@@ -154,10 +154,13 @@ async function loadDevices()
             monthSelect.value;
 
         const url =
-            `${functionBaseUrl}/device-list?year=${year}&month=${month}&code=${functionKey}`;
+            `${functionBaseUrl}/device-list?year=${year}&month=${month}`;
 
         const response =
             await fetch(url);
+
+        console.log("URL=", url);
+        console.log("STATUS=", response.status);
 
         const data =
             await response.json();
@@ -200,8 +203,7 @@ async function downloadReport()
         `${functionBaseUrl}/report-download`
         + `?year=${year}`
         + `&month=${month}`
-        + `&deviceId=${encodeURIComponent(deviceId)}`
-        + `&code=${functionKey}`;
+        + `&deviceId=${encodeURIComponent(deviceId)}`;
 
     window.location.href = url;
 }
