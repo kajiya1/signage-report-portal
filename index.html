@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>センサーレポートダウンロード</title>
+
+<style>
+body {
+    font-family: "Yu Gothic UI", sans-serif;
+    background-color: #f5f7fa;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 600px;
+    margin: 50px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+h1 {
+    margin-top: 0;
+    color: #0F4C81;
+}
+
+.row {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background: #0F4C81;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0B3860;
+}
+
+.status {
+    margin-top: 15px;
+    color: #555;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>センサーレポート</h1>
+
+<div class="row">
+<label>年</label>
+<select id="year"></select>
+</div>
+
+<div class="row">
+<label>月</label>
+<select id="month"></select>
+</div>
+
+<div class="row">
+<label>拠点</label>
+<select id="device"></select>
+</div>
+
+<button id="downloadButton">
+ダウンロード
+</button>
+
+<div class="status" id="status">
+準備完了
+</div>
+
+</div>
+
+<script>
+
+const functionBaseUrl =
+"https://func-signage-sensor-bca0bqeacvd2csb5.japaneast-01.azurewebsites.net/api";
+
+const functionKey =
+"";
+
+const yearSelect =
+document.getElementById("year");
+
+const monthSelect =
+document.getElementById("month");
+
+const deviceSelect =
+document.getElementById("device");
+
+const statusLabel =
+document.getElementById("status");
+
+function initializeYearMonth()
+{
+    const now = new Date();
+
+    for(let y = 2025; y <= 2035; y++)
+    {
+        let option = document.createElement("option");
+        option.value = y;
+        option.text = y;
+        yearSelect.appendChild(option);
+    }
+
+    for(let m = 1; m <= 12; m++)
+    {
+        let option = document.createElement("option");
+        option.value = m;
+        option.text = m;
+        monthSelect.appendChild(option);
+    }
+
+    yearSelect.value = now.getFullYear();
+    monthSelect.value = now.getMonth() + 1;
+}
+
+async function loadDevices()
+{
+    try
+    {
+        statusLabel.textContent =
+            "拠点一覧取得中...";
+
+        const year =
+            yearSelect.value;
+
+        const month =
+            monthSelect.value;
+
+        const url =
+            `${functionBaseUrl}/device-list?year=${year}&month=${month}&code=${functionKey}`;
+
+        const response =
+            await fetch(url);
+
+        const data =
+            await response.json();
+
+        deviceSelect.innerHTML = "";
+
+        for(const device of data.devices)
+        {
+            let option =
+                document.createElement("option");
+
+            option.value = device;
+            option.text = device;
+
+            deviceSelect.appendChild(option);
+        }
+
+        statusLabel.textContent =
+            `${data.count}拠点取得`;
+    }
+    catch(ex)
+    {
+        statusLabel.textContent =
+            ex.message;
+    }
+}
+
+async function downloadReport()
+{
+    const year =
+        yearSelect.value;
+
+    const month =
+        monthSelect.value;
+
+    const deviceId =
+        deviceSelect.value;
+
+    const url =
+        `${functionBaseUrl}/report-download`
+        + `?year=${year}`
+        + `&month=${month}`
+        + `&deviceId=${encodeURIComponent(deviceId)}`
+        + `&code=${functionKey}`;
+
+    window.location.href = url;
+}
+
+yearSelect.addEventListener(
+    "change",
+    loadDevices);
+
+monthSelect.addEventListener(
+    "change",
+    loadDevices);
+
+document
+    .getElementById("downloadButton")
+    .addEventListener(
+        "click",
+        downloadReport);
+
+initializeYearMonth();
+loadDevices();
+
+</script>
+
+</body>
+</html>
