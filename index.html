@@ -6,63 +6,90 @@
 <title>センサーレポートダウンロード</title>
 
 <style>
-body {
-    font-family: "Yu Gothic UI", sans-serif;
-    background-color: #f5f7fa;
-    margin: 0;
-    padding: 0;
+body{
+    font-family:"Yu Gothic UI",sans-serif;
+    background:#f5f7fa;
+    margin:0;
+    padding:0;
 }
 
-.container {
-    max-width: 600px;
-    margin: 50px auto;
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+.container{
+    max-width:700px;
+    margin:50px auto;
+    background:white;
+    padding:30px;
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
 }
 
-h1 {
-    margin-top: 0;
-    color: #0F4C81;
+h1{
+    margin-top:0;
+    color:#0F4C81;
 }
 
-.row {
-    margin-bottom: 20px;
+h2{
+    font-size:20px;
+    margin-top:30px;
+    color:#0F4C81;
 }
 
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
+.row{
+    margin-bottom:20px;
 }
 
-select {
-    width: 100%;
-    padding: 10px;
-    font-size: 16px;
+label{
+    display:block;
+    margin-bottom:5px;
+    font-weight:bold;
 }
 
-button {
-    width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    background: #0F4C81;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
+select{
+    width:100%;
+    padding:10px;
+    font-size:16px;
 }
 
-button:hover {
-    background: #0B3860;
+button{
+    width:100%;
+    padding:12px;
+    font-size:16px;
+    color:white;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
 }
 
-.status {
-    margin-top: 15px;
-    color: #555;
+.peopleButton{
+    background:#0F4C81;
+}
+
+.peopleButton:hover{
+    background:#0B3860;
+}
+
+.adminButton{
+    background:#2E7D32;
+    margin-top:10px;
+}
+
+.adminButton:hover{
+    background:#1B5E20;
+}
+
+.status{
+    margin-top:15px;
+    color:#555;
+}
+
+.adminBox{
+    margin-top:30px;
+    padding:15px;
+    border:1px solid #d0d0d0;
+    border-radius:8px;
+    background:#f8fbf8;
 }
 </style>
+
 </head>
 
 <body>
@@ -81,17 +108,40 @@ button:hover {
 <select id="month"></select>
 </div>
 
+<h2>人流レポート</h2>
+
 <div class="row">
 <label>拠点</label>
 <select id="device"></select>
 </div>
 
-<button id="downloadButton">
-ダウンロード
+<button
+    class="peopleButton"
+    id="downloadButton">
+    人流レポートをダウンロード
 </button>
 
-<div class="status" id="status">
-準備完了
+<div class="adminBox">
+
+<h2>管理者用</h2>
+
+<p>
+全拠点のSSD、Windows、HUB、通信状態、
+SensorCollector状態を確認します。
+</p>
+
+<button
+    class="adminButton"
+    id="monitorButton">
+    全拠点機器監視レポート
+</button>
+
+</div>
+
+<div
+    class="status"
+    id="status">
+    準備完了
 </div>
 
 </div>
@@ -100,9 +150,6 @@ button:hover {
 
 const functionBaseUrl =
 "https://func-signage-sensor-bca0bqeacvd2csb5.japaneast-01.azurewebsites.net/api";
-
-const functionKey =
-"";
 
 const yearSelect =
 document.getElementById("year");
@@ -122,22 +169,31 @@ function initializeYearMonth()
 
     for(let y = 2025; y <= 2035; y++)
     {
-        let option = document.createElement("option");
+        const option =
+            document.createElement("option");
+
         option.value = y;
         option.text = y;
+
         yearSelect.appendChild(option);
     }
 
     for(let m = 1; m <= 12; m++)
     {
-        let option = document.createElement("option");
+        const option =
+            document.createElement("option");
+
         option.value = m;
         option.text = m;
+
         monthSelect.appendChild(option);
     }
 
-    yearSelect.value = now.getFullYear();
-    monthSelect.value = now.getMonth() + 1;
+    yearSelect.value =
+        now.getFullYear();
+
+    monthSelect.value =
+        now.getMonth()+1;
 }
 
 async function loadDevices()
@@ -154,13 +210,12 @@ async function loadDevices()
             monthSelect.value;
 
         const url =
-            `${functionBaseUrl}/device-list?year=${year}&month=${month}`;
+            `${functionBaseUrl}/device-list`
+            + `?year=${year}`
+            + `&month=${month}`;
 
         const response =
             await fetch(url);
-
-        console.log("URL=", url);
-        console.log("STATUS=", response.status);
 
         const data =
             await response.json();
@@ -169,11 +224,14 @@ async function loadDevices()
 
         for(const device of data.devices)
         {
-            let option =
+            const option =
                 document.createElement("option");
 
-            option.value = device;
-            option.text = device;
+            option.value =
+                device;
+
+            option.text =
+                device;
 
             deviceSelect.appendChild(option);
         }
@@ -188,7 +246,7 @@ async function loadDevices()
     }
 }
 
-async function downloadReport()
+function downloadPeopleReport()
 {
     const year =
         yearSelect.value;
@@ -199,11 +257,34 @@ async function downloadReport()
     const deviceId =
         deviceSelect.value;
 
+    statusLabel.textContent =
+        "人流レポート生成中...";
+
     const url =
-        `${functionBaseUrl}/report-download`
+        `${functionBaseUrl}/sensor-excel`
         + `?year=${year}`
         + `&month=${month}`
         + `&deviceId=${encodeURIComponent(deviceId)}`;
+
+    window.location.href = url;
+}
+
+function downloadMonitoringReport()
+{
+    const year =
+        yearSelect.value;
+
+    const month =
+        monthSelect.value;
+
+    statusLabel.textContent =
+        "機器監視レポート生成中...";
+
+    const url =
+        `${functionBaseUrl}/sensor-excel`
+        + `?year=${year}`
+        + `&month=${month}`
+        + `&deviceId=ALL`;
 
     window.location.href = url;
 }
@@ -217,10 +298,16 @@ monthSelect.addEventListener(
     loadDevices);
 
 document
-    .getElementById("downloadButton")
-    .addEventListener(
-        "click",
-        downloadReport);
+.getElementById("downloadButton")
+.addEventListener(
+    "click",
+    downloadPeopleReport);
+
+document
+.getElementById("monitorButton")
+.addEventListener(
+    "click",
+    downloadMonitoringReport);
 
 initializeYearMonth();
 loadDevices();
