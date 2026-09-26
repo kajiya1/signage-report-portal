@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>センサーレポートダウンロード</title>
-
 <style>
 body{
     font-family:"Yu Gothic UI",sans-serif;
@@ -12,7 +11,6 @@ body{
     margin:0;
     padding:0;
 }
-
 .container{
     max-width:700px;
     margin:50px auto;
@@ -21,34 +19,28 @@ body{
     border-radius:12px;
     box-shadow:0 2px 8px rgba(0,0,0,.15);
 }
-
 h1{
     margin-top:0;
     color:#0F4C81;
 }
-
 h2{
     font-size:20px;
     margin-top:30px;
     color:#0F4C81;
 }
-
 .row{
     margin-bottom:20px;
 }
-
 label{
     display:block;
     margin-bottom:5px;
     font-weight:bold;
 }
-
 select{
     width:100%;
     padding:10px;
     font-size:16px;
 }
-
 button{
     width:100%;
     padding:12px;
@@ -58,29 +50,27 @@ button{
     border-radius:6px;
     cursor:pointer;
 }
-
+button:disabled{
+    cursor:not-allowed;
+    opacity:.65;
+}
 .peopleButton{
     background:#0F4C81;
 }
-
-.peopleButton:hover{
+.peopleButton:hover:not(:disabled){
     background:#0B3860;
 }
-
 .adminButton{
     background:#2E7D32;
     margin-top:10px;
 }
-
 .adminButton:hover{
     background:#1B5E20;
 }
-
 .status{
     margin-top:15px;
     color:#555;
 }
-
 .adminBox{
     margin-top:30px;
     padding:15px;
@@ -89,109 +79,81 @@ button{
     background:#f8fbf8;
 }
 </style>
-
 </head>
-
 <body>
-
 <div class="container">
-
 <h1>センサーレポート</h1>
-
 <div class="row">
 <label>年</label>
 <select id="year"></select>
 </div>
-
 <div class="row">
 <label>月</label>
 <select id="month"></select>
 </div>
-
 <h2>人流レポート</h2>
-
 <div class="row">
 <label>拠点</label>
 <select id="device"></select>
 </div>
-
 <button
     class="peopleButton"
     id="downloadButton">
     人流レポートをダウンロード
 </button>
-
 <div class="adminBox">
-
 <h2>管理者用</h2>
-
 <p>
 全拠点のSSD、Windows、HUB、通信状態、
 SensorCollector状態を確認します。
 </p>
-
 <button
     class="adminButton"
     id="monitorButton">
     全拠点機器監視レポート
 </button>
-
 </div>
-
 <div
     class="status"
     id="status">
     準備完了
 </div>
-
 </div>
-
 <script>
-
 const functionBaseUrl =
 "https://func-signage-sensor-bca0bqeacvd2csb5.japaneast-01.azurewebsites.net/api";
-
 const yearSelect =
 document.getElementById("year");
-
 const monthSelect =
 document.getElementById("month");
-
 const deviceSelect =
 document.getElementById("device");
-
 const statusLabel =
 document.getElementById("status");
+const downloadButton =
+document.getElementById("downloadButton");
 
 function initializeYearMonth()
 {
     const now = new Date();
-
     for(let y = 2025; y <= 2035; y++)
     {
         const option =
             document.createElement("option");
-
         option.value = y;
         option.text = y;
-
         yearSelect.appendChild(option);
     }
-
     for(let m = 1; m <= 12; m++)
     {
         const option =
             document.createElement("option");
-
         option.value = m;
         option.text = m;
-
         monthSelect.appendChild(option);
     }
-
     yearSelect.value =
         now.getFullYear();
-
     monthSelect.value =
         now.getMonth()+1;
 }
@@ -202,63 +164,119 @@ async function loadDevices()
     {
         statusLabel.textContent =
             "拠点一覧取得中...";
-
         const year =
             yearSelect.value;
-
         const month =
             monthSelect.value;
-
         const url =
             `${functionBaseUrl}/device-list`
             + `?year=${year}`
             + `&month=${month}`;
-
         const response =
             await fetch(url);
 
+        if(!response.ok)
+        {
+            throw new Error(`拠点一覧の取得に失敗しました。（HTTP ${response.status}）`);
+        }
+
         const data =
             await response.json();
-
         deviceSelect.innerHTML = "";
-
-        for(const device of data.devices)
+        for(const device of data.devices ?? [])
         {
             const option =
                 document.createElement("option");
-
             option.value =
                 device;
-
             option.text =
                 device;
-
             deviceSelect.appendChild(option);
         }
-
         statusLabel.textContent =
-            `${data.count}拠点取得`;
+            `${data.count ?? 0}拠点取得`;
     }
     catch(ex)
     {
+        deviceSelect.innerHTML = "";
         statusLabel.textContent =
             ex.message;
     }
 }
 
-function downloadPeopleReport()
+function getDownloadFileName(response, year, month, deviceId)
+{
+    const disposition =
+        response.headers.get("content-disposition") || "";
+    const utf8Match =
+        disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if(utf8Match)
+    {
+        try
+        {
+            return decodeURIComponent(utf8Match[1]);
+        }
+        catch
+        {
+        }
+    }
+
+    const normalMatch =
+        disposition.match(/filename="?([^";]+)"?/i);
+    if(normalMatch)
+    {
+        return normalMatch[1];
+    }
+
+    return `PeopleReport_${year}${String(month).padStart(2, "0")}_${deviceId}.xlsx`;
+}
+
+async function getErrorMessage(response)
+{
+    const defaultMessage =
+        "対象年月の人流レポートはまだ生成されていません。";
+
+    try
+    {
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if(contentType.includes("application/json"))
+        {
+            const data = await response.json();
+            return data.message || data.error || defaultMessage;
+        }
+
+        const text = (await response.text()).trim();
+        if(text && text.length <= 300)
+        {
+            return text;
+        }
+    }
+    catch
+    {
+    }
+
+    return defaultMessage;
+}
+
+async function downloadPeopleReport()
 {
     const year =
         yearSelect.value;
-
     const month =
         monthSelect.value;
-
     const deviceId =
         deviceSelect.value;
 
-    statusLabel.textContent =
-        "人流レポート生成中...";
+    if(!deviceId)
+    {
+        const message =
+            "対象年月には人流データがありません。拠点一覧が0件のため、レポートをダウンロードできません。";
+        statusLabel.textContent = message;
+        alert(message);
+        return;
+    }
 
     const url =
         `${functionBaseUrl}/report-download`
@@ -266,53 +284,89 @@ function downloadPeopleReport()
         + `&month=${month}`
         + `&deviceId=${encodeURIComponent(deviceId)}`;
 
-    window.location.href = url;
+    downloadButton.disabled = true;
+    statusLabel.textContent =
+        "人流レポート取得中...";
+
+    let objectUrl = null;
+
+    try
+    {
+        const response = await fetch(url);
+
+        if(!response.ok)
+        {
+            const message = await getErrorMessage(response);
+            statusLabel.textContent = message;
+            alert(message);
+            return;
+        }
+
+        const blob = await response.blob();
+        const fileName =
+            getDownloadFileName(response, year, month, deviceId);
+        objectUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        statusLabel.textContent =
+            `人流レポートをダウンロードしました：${fileName}`;
+    }
+    catch(ex)
+    {
+        console.error(ex);
+        const message =
+            "人流レポートの取得に失敗しました。通信状態を確認して、もう一度お試しください。";
+        statusLabel.textContent = message;
+        alert(message);
+    }
+    finally
+    {
+        if(objectUrl)
+        {
+            URL.revokeObjectURL(objectUrl);
+        }
+        downloadButton.disabled = false;
+    }
 }
 
 function downloadMonitoringReport()
 {
     const year =
         yearSelect.value;
-
     const month =
         monthSelect.value;
-
     statusLabel.textContent =
         "機器監視レポート生成中...";
-
     const url =
         `${functionBaseUrl}/sensor-excel`
         + `?year=${year}`
         + `&month=${month}`
         + `&deviceId=ALL`;
-
     window.location.href = url;
 }
 
 yearSelect.addEventListener(
     "change",
     loadDevices);
-
 monthSelect.addEventListener(
     "change",
     loadDevices);
-
-document
-.getElementById("downloadButton")
-.addEventListener(
+downloadButton.addEventListener(
     "click",
     downloadPeopleReport);
-
 document
 .getElementById("monitorButton")
 .addEventListener(
     "click",
     downloadMonitoringReport);
-
 initializeYearMonth();
 loadDevices();
-
 </script>
-
 </body>
 </html>
